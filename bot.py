@@ -13,6 +13,12 @@ from telegram.ext import (
 from openai import OpenAI
 from config import TELEGRAM_BOT_TOKEN, OPENAI_API_KEY
 
+# Validate environment variables
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is not set!")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is not set!")
+
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(
@@ -235,21 +241,25 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    persistence = PicklePersistence("bot_data.pickle")
+    try:
+        persistence = PicklePersistence("bot_data.pickle")
 
-    app = Application.builder() \
-        .token(TELEGRAM_BOT_TOKEN) \
-        .persistence(persistence) \
-        .build()
+        app = Application.builder() \
+            .token(TELEGRAM_BOT_TOKEN) \
+            .persistence(persistence) \
+            .build()
 
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("language", language_command))
-    app.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_grammar))
+        app.add_handler(CommandHandler("start", start_command))
+        app.add_handler(CommandHandler("help", help_command))
+        app.add_handler(CommandHandler("language", language_command))
+        app.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_grammar))
 
-    print("🤖 Bot running...")
-    app.run_polling()
+        logger.info("🤖 Bot starting...")
+        app.run_polling()
+    except Exception as e:
+        logger.error(f"Failed to start bot: {e}")
+        raise
 
 
 if __name__ == "__main__":
