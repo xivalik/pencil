@@ -31,7 +31,7 @@ WORD_LIMIT = 100
 
 LANGUAGES = {
     "en": {
-        "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors.\n\n🌍 Change language: /language\n❓ Help: /help\n💬 Feedback: @pencil_feedback",
+        "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors.\n\n🌍 Change language: /language\n❓ Help: /help\n💬 Feedback: @pencil_fbot",
         "select": "🌍 <b>Select your language:</b>",
         "set": "✅ <b>Language set: English</b>\n\n📝 Now send me any English text to check!",
         "checking": "▌",
@@ -39,7 +39,7 @@ LANGUAGES = {
         "no_error": "✅ <b>No mistakes found!</b>\n\n📝 You can send another text to check."
     },
     "ru": {
-        "start": "🎓 <b>Бот проверки английской грамматики</b>\n\n📝 Отправьте мне любой английский текст, и я проверю его на грамматические ошибки.\n\n🌍 Сменить язык: /language\n❓ Помощь: /help\n💬 Обратная связь: @pencil_feedback",
+        "start": "🎓 <b>Бот проверки английской грамматики</b>\n\n📝 Отправьте мне любой английский текст, и я проверю его на грамматические ошибки.\n\n🌍 Сменить язык: /language\n❓ Помощь: /help\n💬 Обратная связь: @pencil_fbot",
         "select": "🌍 <b>Выберите язык:</b>",
         "set": "✅ <b>Язык: Русский</b>\n\n📝 Отправьте английский текст для проверки!",
         "checking": "▌",
