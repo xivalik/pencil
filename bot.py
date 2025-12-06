@@ -1,7 +1,15 @@
 import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, PicklePersistence
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+    ContextTypes,
+    PicklePersistence
+)
 from openai import OpenAI
 from config import TELEGRAM_BOT_TOKEN, OPENAI_API_KEY
 
@@ -172,10 +180,7 @@ async def stream_grammar_correction(text, language, message):
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
-    await update.message.reply_text(
-        LANGUAGES[lang]["start"],
-        parse_mode="HTML"
-    )
+    await update.message.reply_text(LANGUAGES[lang]["start"], parse_mode="HTML")
 
 
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,21 +208,23 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
+
     if lang == "en":
         t = f"📚 <b>Help</b>\n\n📝 Send any English sentence (max {WORD_LIMIT} words)\n🌍 Change language: /language"
     elif lang == "ru":
         t = f"📚 <b>Помощь</b>\n\n📝 Отправьте английское предложение (макс. {WORD_LIMIT} слов)\n🌍 Сменить язык: /language"
     else:
         t = f"📚 <b>Yordam</b>\n\n📝 Inglizcha gap yuboring (maks. {WORD_LIMIT} so'z)\n🌍 Tilni o'zgartirish: /language"
+
     await update.message.reply_text(t, parse_mode="HTML")
 
 
 async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
     text = update.message.text
-    
+
     word_count = len(text.split())
-    
+
     if word_count > WORD_LIMIT:
         await update.message.reply_text(
             LANGUAGES[lang]["word_limit"].format(count=word_count),
@@ -230,8 +237,12 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    persistence = PicklePersistence(filepath="bot_data.pickle")
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).persistence(persistence).build()
+    persistence = PicklePersistence("bot_data.pickle")
+
+    app = Application.builder() \
+        .token(TELEGRAM_BOT_TOKEN) \
+        .persistence(persistence) \
+        .build()
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
