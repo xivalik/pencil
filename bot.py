@@ -19,169 +19,156 @@ if not TELEGRAM_BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is not set!")
 
+# GLOBAL RATE LIMITER
+last_request_time = 0
+GLOBAL_COOLDOWN = 0.8  # seconds
+
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
 WORD_LIMIT = 100
 
+# ---------------- LANGUAGE DATA ----------------
 LANGUAGES = {
     "en": {
-        "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors.\n\n🌍 Change language: /language\n❓ Help: /help\n💬 Feedback: @pencil_fbot",
+        "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors.\n\n🌍 Change language: /language\n❓ Help: /help\n💡 Feedback: @pencil_fbot",
         "select": "🌍 <b>Select your language:</b>",
-        "set": "✅ <b>Language set: English</b>\n\n📝 Now send me any English text to check!",
-        "checking": "▌",
-        "word_limit": f"⚠️ <b>Word limit exceeded!</b>\n\nMaximum {WORD_LIMIT} words per message.\n\nYour message has <b>{{count}}</b> words.\n\n📝 Please send a shorter text.",
-        "no_error": "✅ <b>No mistakes found!</b>\n\n📝 You can send another text to check."
+        "set": "<b>Language set: 🇬🇧English</b>\n\n📝 Now you can send me any English text to check!",
+        "checking": "⏳checking…",
+        "wait": "⏳ Please wait, I’m still checking your previous text…",
+        "word_limit": f"⚠️ <b>Word limit exceeded!</b>\n\nMaximum {WORD_LIMIT} words per message.\nYour message has <b>{{count}}</b> words.\n\n📝 Please send a shorter text.",
+        "no_error": "✅ <b>No mistakes found!</b>\n\n📝 You can send another text to check.",
+        "no_english": "🚫 <b>I think the text is not in English.</b>\n\n❕ Please send text only in English!"
     },
     "ru": {
-        "start": "🎓 <b>Бот проверки английской грамматики</b>\n\n📝 Отправьте мне любой английский текст, и я проверю его на грамматические ошибки.\n\n🌍 Сменить язык: /language\n❓ Помощь: /help\n💬 Обратная связь: @pencil_fbot",
+        "start": "🎓 <b>Бот для проверки грамматики английского языка</b>\n\n📝 Отправьте любой текст на английском, и я исправлю грамматические ошибки.\n\n🌍 Сменить язык: /language\n❓ Помощь: /help\n💡 Обратная связь: @pencil_fbot",
         "select": "🌍 <b>Выберите язык:</b>",
-        "set": "✅ <b>Язык: Русский</b>\n\n📝 Отправьте английский текст для проверки!",
-        "checking": "▌",
-        "word_limit": f"⚠️ <b>Превышен лимит слов!</b>\n\nМаксимум {WORD_LIMIT} слов.\n\nВаше сообщение содержит <b>{{count}}</b> слов.",
-        "no_error": "✅ <b>Ошибок не найдено!</b>\n\n📝 Вы можете отправить другой текст."
+        "set": "✅ <b>Язык установлен: 🇷🇺Русский</b>\n\n📝 Теперь вы можете отправлять текст на английском для проверки!",
+        "checking": "⏳ проверяю…",
+        "wait": "⏳ Пожалуйста, подождите, я еще проверяю предыдущий текст…",
+        "word_limit": f"⚠️ <b>Превышен лимит слов!</b>\n\nМаксимум {WORD_LIMIT} слов.\nВ вашем сообщении: <b>{{count}}</b> слов.\n\n📝 Отправьте текст покороче.",
+        "no_error": "✅ <b>Ошибок не найдено!</b>\n\n📝 Можете отправить следующий текст.",
+        "no_english": "🚫 <b>Похоже, текст не на английском.</b>\n\n❕ Пожалуйста, отправляйте текст только на английском!"
     },
     "uz": {
-        "start": "🎓 <b>Ingliz grammatikasini tekshiruvchi bot</b>\n\n📝 Inglizcha matnni yuboring — men uni grammatik xatolar uchun tekshiraman.\n\n🌍 Tilni o'zgartirish: /language\n❓ Yordam: /help",
+        "start": "🎓 <b>Ingliz tili grammatikasini tekshiruvchi bot</b>\n\n📝 Inglizcha matn yuboring, xatolarni tuzatib beraman.\n\n🌍 Tilni o‘zgartirish: /language\n❓ Yordam: /help\n💡 Fikr bildirish: @pencil_fbot",
         "select": "🌍 <b>Tilni tanlang:</b>",
-        "set": "✅ <b>Til: O'zbek</b>\n\n📝 Endi inglizcha gap yuboring!",
-        "checking": "▌",
-        "word_limit": f"⚠️ <b>So'z limiti oshdi!</b>\n\nMaksimum {WORD_LIMIT} so'z.\n\nSizning xabaringizda <b>{{count}}</b> so'z bor.",
-        "no_error": "✅ <b>Xato topilmadi!</b>\n\n📝 Boshqa matn yuboring."
+        "set": "✅ <b>Til tanlandi: 🇺🇿O‘zbekcha</b>\n\n📝 Endi menga inglizcha matn yuborishingiz mumkin!",
+        "checking": "⏳ tekshirilmoqda…",
+        "wait": "⏳ Iltimos, avvalgi matn hali tekshirilmoqda…",
+        "word_limit": f"⚠️ <b>So‘zlar chegarasi oshib ketdi!</b>\n\nMaksimal {WORD_LIMIT} ta so‘z.\nSiz yuborgan matnda: <b>{{count}}</b> ta so‘z bor.\n\n📝 Iltimos, qisqaroq matn yuboring.",
+        "no_error": "✅ <b>Xato topilmadi!</b>\n\n📝 Yana matn yuborishingiz mumkin!",
+        "no_english": "🚫 <b>Matn ingliz tilida emas shekilli.</b>\n\n❕ Iltimos, faqat inglizcha matn yuboring!"
     }
 }
+
+# ---------------- SYSTEM PROMPTS ----------------
 
 SYSTEM_PROMPTS = {
     "en": """You are an English grammar checker. Use Telegram HTML formatting.
 
-RULES:
-1. Only correct SIGNIFICANT grammar errors
-2. IGNORE: capitalization, punctuation, spacing
+TASK:
+• Fix important grammar mistakes   
+• Ignore commas, capitalization, spacing  
+• Keep meaning the same  
+• If text is nonsense or not English → reply: NOT_IN_ENGLISH  
 
-FORMAT for errors:
+FORMAT:
+✏️ <b>Corrected Text:</b>
 
-✏️ <b>Corrected Sentence:</b>
-
-[corrected sentence]
+[corrected]
 
 
-❗ <b>Mistakes:</b>
+❗<b>Mistakes:</b>
 
-➤ "[wrong]" → "[correct]" - [reason]
+➤ "[wrong]" → "[correct]" — [reason]
 
---- 
-
-If NO significant errors found, respond ONLY:
-NO_ERRORS_FOUND""",
+If no important mistakes → reply: NO_ERRORS_FOUND
+""",
 
     "ru": """You are an English grammar checker. Explain in Russian. Use Telegram HTML formatting.
 
-RULES:
-1. Only correct SIGNIFICANT grammar errors
-2. IGNORE: capitalization, punctuation, spacing
+TASK:
+• Исправлять только серьёзные грамматические ошибки  
+• Игнорировать мелкие детали  
+• Смысл не менять  
+• Если текст не английский → ответ: NOT_IN_ENGLISH  
 
-FORMAT:
+ФОРМАТ:
+✏️ <b>Исправленный текст:</b>
 
-✏️ <b>Исправленное предложение:</b>
-
-[corrected sentence]
+[corrected]
 
 
-❗ <b>Ошибки:</b>
+❗<b>Ошибки:</b>
 
-➤ "[wrong]" → "[correct]" - [причина]
+➤ "[wrong]" → "[correct]" — [причина]
 
----
-
-If NO significant errors found, respond ONLY:
-NO_ERRORS_FOUND""",
+Если ошибок нет → ответ: NO_ERRORS_FOUND
+""",
 
     "uz": """You are an English grammar checker. Explain in Uzbek. Use Telegram HTML formatting.
 
-RULES:
-1. Only correct SIGNIFICANT grammar errors
-2. IGNORE: capitalization, punctuation, spacing
+TASK:
+• Faqat muhim grammatik xatolarni tuzating  
+• Kichik xatolarni e'tiborga olmang  
+• Ma'noni o'zgartirmang  
+• Inglizcha bo'lmasa → NOT_IN_ENGLISH  
 
 FORMAT:
+✏️ <b>To‘g‘rilangan Matn:</b>
 
-✏️ <b>To'g'rilangan gap:</b>
-
-[corrected sentence]
+[corrected]
 
 
-❗ <b>Xatolar:</b>
+❗<b>Xatolar:</b>
 
-➤ "[wrong]" → "[correct]" - [sabab]
+➤ "[wrong]" → "[correct]" — [sabab]
 
----
-
-If NO significant errors found, respond ONLY:
-NO_ERRORS_FOUND"""
+Agar xato bo‘lmasa → NO_ERRORS_FOUND
+"""
 }
 
+# ---------------- OPENAI REQUEST (GLOBAL COOLDOWN + RETRY) ----------------
 
-# ⭐⭐⭐ FIXED STREAMING FUNCTION (NO FLOOD LIMITS)
-async def stream_grammar_correction(text, language, message):
-    try:
-        stream = openai_client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPTS[language]},
-                {"role": "user", "content": f"Check this English text:\n{text}"}
-            ],
-            temperature=0.2,
-            stream=True
-        )
+async def run_grammar_correction(text: str, language: str) -> str:
+    global last_request_time
 
-        full_text = ""
-        buffer = ""
+    now = asyncio.get_event_loop().time()
+    elapsed = now - last_request_time
 
-        last_edit = asyncio.get_event_loop().time()
+    # Global cooldown
+    if elapsed < GLOBAL_COOLDOWN:
+        await asyncio.sleep(GLOBAL_COOLDOWN - elapsed)
 
-        async def safe_edit(new_text):
-            """Ensures edits happen max once per second."""
-            nonlocal last_edit
-            now = asyncio.get_event_loop().time()
+    last_request_time = asyncio.get_event_loop().time()
 
-            if now - last_edit < 1.0:
-                return
+    retries = 2
+    for attempt in range(retries):
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPTS[language]},
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.2,
+            )
+            return response.choices[0].message.content.strip()
 
-            last_edit = now
-            try:
-                await message.edit_text(new_text, parse_mode="HTML")
-            except:
-                pass
-
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if not delta:
+        except Exception as e:
+            if "429" in str(e) and attempt < retries - 1:
+                await asyncio.sleep(1.2)
                 continue
+            raise e
 
-            buffer += delta
-            now = asyncio.get_event_loop().time()
 
-            if now - last_edit >= 1.0:
-                full_text += buffer
-                buffer = ""
-
-                preview = full_text + "▌"
-                await safe_edit(preview)
-
-        full_text += buffer
-
-        if "NO_ERRORS_FOUND" in full_text:
-            await message.edit_text(LANGUAGES[language]["no_error"], parse_mode="HTML")
-        else:
-            await message.edit_text(full_text, parse_mode="HTML")
-
-    except Exception as e:
-        await message.edit_text("❌ Error: " + str(e))
-
+# ---------------- COMMANDS ----------------
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
@@ -192,13 +179,13 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
         [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")],
-        [InlineKeyboardButton("🇺🇿 O'zbek", callback_data="lang_uz")]
+        [InlineKeyboardButton("🇺🇿 O'zbek", callback_data="lang_uz")],
     ]
     lang = context.user_data.get("language", "en")
     await update.message.reply_text(
         LANGUAGES[lang]["select"],
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
 
@@ -212,42 +199,73 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
+    text = {
+        "en": f"📚 <b>Help</b>\n\n📝 Send an English sentence (max {WORD_LIMIT} words)\n🌍 Change language: /language",
+        "ru": f"📚 <b>Помощь</b>\n\n📝 Отправьте текст на английском (макс {WORD_LIMIT} слов)\n🌍 Сменить язык: /language",
+        "uz": f"📚 <b>Yordam</b>\n\n📝 Inglizcha gap yuboring (maks {WORD_LIMIT} so'z)\n🌍 Tilni o‘zgartirish: /language",
+    }[lang]
+    await update.message.reply_text(text, parse_mode="HTML")
 
-    if lang == "en":
-        t = f"📚 <b>Help</b>\n\n📝 Send any English sentence (max {WORD_LIMIT} words)\n🌍 Change language: /language"
-    elif lang == "ru":
-        t = f"📚 <b>Помощь</b>\n\n📝 Отправьте английское предложение (макс. {WORD_LIMIT} слов)\n🌍 Сменить язык: /language"
-    else:
-        t = f"📚 <b>Yordam</b>\n\n📝 Inglizcha gap yuboring (maks. {WORD_LIMIT} so'z)\n🌍 Tilni o'zgartirish: /language"
 
-    await update.message.reply_text(t, parse_mode="HTML")
-
+# ---------------- MAIN CHECKER ----------------
 
 async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
     text = update.message.text
 
-    word_count = len(text.split())
+    # 1️⃣ If already processing → block
+    if context.user_data.get("is_processing", False):
+        await update.message.reply_text(LANGUAGES[lang]["wait"])
+        return
 
+    context.user_data["is_processing"] = True
+
+    # 2️⃣ Word limit
+    word_count = len(text.split())
     if word_count > WORD_LIMIT:
+        context.user_data["is_processing"] = False
         await update.message.reply_text(
             LANGUAGES[lang]["word_limit"].format(count=word_count),
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
         return
 
+    # 3️⃣ Send checking message
     msg = await update.message.reply_text(LANGUAGES[lang]["checking"])
-    await stream_grammar_correction(text, lang, msg)
 
+    try:
+        # 4️⃣ Timeout for OpenAI
+        try:
+            full_text = await asyncio.wait_for(
+                run_grammar_correction(text, lang),
+                timeout=5,
+            )
+        except asyncio.TimeoutError:
+            await msg.edit_text(LANGUAGES[lang]["no_english"], parse_mode="HTML")
+            return
+
+        # 5️⃣ Model responses
+        if "NO_ERRORS_FOUND" in full_text:
+            await msg.edit_text(LANGUAGES[lang]["no_error"], parse_mode="HTML")
+        elif "NOT_IN_ENGLISH" in full_text:
+            await msg.edit_text(LANGUAGES[lang]["no_english"], parse_mode="HTML")
+        else:
+            await msg.edit_text(full_text, parse_mode="HTML")
+
+    except Exception as e:
+        logger.error(f"Grammar error: {e}")
+        await msg.edit_text("❌ Error: " + str(e))
+    finally:
+        context.user_data["is_processing"] = False
+
+
+# ---------------- RUN BOT ----------------
 
 def main():
     try:
         persistence = PicklePersistence("bot_data.pickle")
 
-        app = Application.builder() \
-            .token(TELEGRAM_BOT_TOKEN) \
-            .persistence(persistence) \
-            .build()
+        app = Application.builder().token(TELEGRAM_BOT_TOKEN).persistence(persistence).build()
 
         app.add_handler(CommandHandler("start", start_command))
         app.add_handler(CommandHandler("help", help_command))
