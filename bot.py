@@ -127,40 +127,6 @@ Agar xato bo‘lmasa → NO_ERRORS_FOUND
 """
 }
 
-# ---------------- OPENAI REQUEST (GLOBAL COOLDOWN + RETRY) ----------------
-
-async def run_grammar_correction(text: str, language: str) -> str:
-    global last_request_time
-
-    now = asyncio.get_event_loop().time()
-    elapsed = now - last_request_time
-
-    # Global cooldown
-    if elapsed < GLOBAL_COOLDOWN:
-        await asyncio.sleep(GLOBAL_COOLDOWN - elapsed)
-
-    last_request_time = asyncio.get_event_loop().time()
-
-    retries = 2
-    for attempt in range(retries):
-        try:
-            response = openai_client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPTS[language]},
-                    {"role": "user", "content": text},
-                ],
-                temperature=0.2,
-            )
-            return response.choices[0].message.content.strip()
-
-        except Exception as e:
-            if "429" in str(e) and attempt < retries - 1:
-                await asyncio.sleep(1.2)
-                continue
-            raise e
-
-
 # ---------------- COMMANDS ----------------
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
