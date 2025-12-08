@@ -19,10 +19,6 @@ if not TELEGRAM_BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is not set!")
 
-# GLOBAL RATE LIMITER
-last_request_time = 0
-GLOBAL_COOLDOWN = 0.8  # seconds
-
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(
@@ -40,7 +36,6 @@ LANGUAGES = {
         "select": "🌍 <b>Select your language:</b>",
         "set": "<b>Language set: 🇬🇧English</b>\n\n📝 Now you can send me any English text to check!",
         "checking": "⏳checking…",
-        "wait": "⏳ Please wait, I’m still checking your previous text…",
         "word_limit": f"⚠️ <b>Word limit exceeded!</b>\n\nMaximum {WORD_LIMIT} words per message.\nYour message has <b>{{count}}</b> words.\n\n📝 Please send a shorter text.",
         "no_error": "✅ <b>No mistakes found!</b>\n\n📝 You can send another text to check.",
         "no_english": "🚫 <b>I think the text is not in English.</b>\n\n❕ Please send text only in English!"
@@ -48,9 +43,8 @@ LANGUAGES = {
     "ru": {
         "start": "🎓 <b>Бот для проверки грамматики английского языка</b>\n\n📝 Отправьте любой текст на английском, и я исправлю грамматические ошибки.\n\n🌍 Сменить язык: /language\n❓ Помощь: /help\n💡 Обратная связь: @pencil_fbot",
         "select": "🌍 <b>Выберите язык:</b>",
-        "set": "✅ <b>Язык установлен: 🇷🇺Русский</b>\n\n📝 Теперь вы можете отправлять текст на английском для проверки!",
+        "set": "<b>Язык установлен: 🇷🇺Русский</b>\n\n📝 Теперь вы можете отправлять текст на английском для проверки!",
         "checking": "⏳ проверяю…",
-        "wait": "⏳ Пожалуйста, подождите, я еще проверяю предыдущий текст…",
         "word_limit": f"⚠️ <b>Превышен лимит слов!</b>\n\nМаксимум {WORD_LIMIT} слов.\nВ вашем сообщении: <b>{{count}}</b> слов.\n\n📝 Отправьте текст покороче.",
         "no_error": "✅ <b>Ошибок не найдено!</b>\n\n📝 Можете отправить следующий текст.",
         "no_english": "🚫 <b>Похоже, текст не на английском.</b>\n\n❕ Пожалуйста, отправляйте текст только на английском!"
@@ -58,12 +52,11 @@ LANGUAGES = {
     "uz": {
         "start": "🎓 <b>Ingliz tili grammatikasini tekshiruvchi bot</b>\n\n📝 Inglizcha matn yuboring, xatolarni tuzatib beraman.\n\n🌍 Tilni o‘zgartirish: /language\n❓ Yordam: /help\n💡 Fikr bildirish: @pencil_fbot",
         "select": "🌍 <b>Tilni tanlang:</b>",
-        "set": "✅ <b>Til tanlandi: 🇺🇿O‘zbekcha</b>\n\n📝 Endi menga inglizcha matn yuborishingiz mumkin!",
+        "set": "<b>Til tanlandi: 🇺🇿O‘zbekcha</b>\n\n📝 Endi menga inglizcha matn yuborishingiz mumkin!",
         "checking": "⏳ tekshirilmoqda…",
-        "wait": "⏳ Iltimos, avvalgi matn hali tekshirilmoqda…",
-        "word_limit": f"⚠️ <b>So‘zlar chegarasi oshib ketdi!</b>\n\nMaksimal {WORD_LIMIT} ta so‘z.\nSiz yuborgan matnda: <b>{{count}}</b> ta so‘z bor.\n\n📝 Iltimos, qisqaroq matn yuboring.",
+        "word_limit": f"⚠️ <b>Matnda so‘zlar chegarasi oshib ketdi!</b>\n\nMaksimal {WORD_LIMIT} ta so‘z.\nSiz yuborgan matnda: <b>{{count}}</b> ta so‘z bor.\n\n📝 Iltimos, qisqaroq matn yuboring.",
         "no_error": "✅ <b>Xato topilmadi!</b>\n\n📝 Yana matn yuborishingiz mumkin!",
-        "no_english": "🚫 <b>Matn ingliz tilida emas shekilli.</b>\n\n❕ Iltimos, faqat inglizcha matn yuboring!"
+        "no_english": "🚫 <b>Menimcha matn ingliz tilida emas.</b>\n\n❕ Iltimos, faqat inglizcha matn yuboring!"
     }
 }
 
@@ -100,7 +93,7 @@ TASK:
 • Если текст не английский → ответ: NOT_IN_ENGLISH  
 
 ФОРМАТ:
-✏️ <b>Исправленный текст:</b>
+✏️ <b>Исправленный Текст:</b>
 
 [corrected]
 
@@ -121,7 +114,7 @@ TASK:
 • Inglizcha bo'lmasa → NOT_IN_ENGLISH  
 
 FORMAT:
-✏️ <b>To‘g‘rilangan Matn:</b>
+✏️ <b>To‘g‘irlangan Matn:</b>
 
 [corrected]
 
@@ -200,9 +193,9 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
     text = {
-        "en": f"📚 <b>Help</b>\n\n📝 Send an English sentence (max {WORD_LIMIT} words)\n🌍 Change language: /language",
+        "en": f"📚 <b>Help</b>\n\n📝 Send an English text (max {WORD_LIMIT} words)\n🌍 Change language: /language",
         "ru": f"📚 <b>Помощь</b>\n\n📝 Отправьте текст на английском (макс {WORD_LIMIT} слов)\n🌍 Сменить язык: /language",
-        "uz": f"📚 <b>Yordam</b>\n\n📝 Inglizcha gap yuboring (maks {WORD_LIMIT} so'z)\n🌍 Tilni o‘zgartirish: /language",
+        "uz": f"📚 <b>Yordam</b>\n\n📝 Shunchaki inglizcha matn yuboring (maks {WORD_LIMIT} so'z)\n🌍 Tilni o‘zgartirish: /language",
     }[lang]
     await update.message.reply_text(text, parse_mode="HTML")
 
