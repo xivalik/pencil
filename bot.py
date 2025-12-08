@@ -66,10 +66,10 @@ SYSTEM_PROMPTS = {
     "en": """You are an English grammar checker. Use Telegram HTML formatting.
 
 TASK:
-• Fix important grammar mistakes   
-• Ignore commas, capitalization, spacing  
-• Keep meaning the same  
-• If text is nonsense or not English → reply: NOT_IN_ENGLISH  
+• Fix important grammar mistakes
+• Ignore commas, capitalization, spacing
+• Keep meaning the same
+• If text is nonsense or not English → reply: NOT_IN_ENGLISH
 
 FORMAT:
 ✏️ <b>Corrected Text:</b>
@@ -87,10 +87,10 @@ If no important mistakes → reply: NO_ERRORS_FOUND
     "ru": """You are an English grammar checker. Explain in Russian. Use Telegram HTML formatting.
 
 TASK:
-• Исправлять только серьёзные грамматические ошибки  
-• Игнорировать мелкие детали  
-• Смысл не менять  
-• Если текст не английский → ответ: NOT_IN_ENGLISH  
+• Исправлять только серьёзные грамматические ошибки
+• Игнорировать мелкие детали
+• Смысл не менять
+• Если текст не английский → ответ: NOT_IN_ENGLISH
 
 ФОРМАТ:
 ✏️ <b>Исправленный Текст:</b>
@@ -108,10 +108,10 @@ TASK:
     "uz": """You are an English grammar checker. Explain in Uzbek. Use Telegram HTML formatting.
 
 TASK:
-• Faqat muhim grammatik xatolarni tuzating  
-• Kichik xatolarni e'tiborga olmang  
-• Ma'noni o'zgartirmang  
-• Inglizcha bo'lmasa → NOT_IN_ENGLISH  
+• Faqat muhim grammatik xatolarni tuzating
+• Kichik xatolarni e'tiborga olmang
+• Ma'noni o'zgartirmang
+• Inglizcha bo'lmasa → NOT_IN_ENGLISH
 
 FORMAT:
 ✏️ <b>To‘g‘irlangan Matn:</b>
@@ -126,6 +126,28 @@ FORMAT:
 Agar xato bo‘lmasa → NO_ERRORS_FOUND
 """
 }
+
+# ---------------- OPENAI REQUEST (RETRY ONLY) ----------------
+
+async def run_grammar_correction(text: str, language: str) -> str:
+    """Single request with small retry on 429."""
+    retries = 2
+    for attempt in range(retries):
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPTS[language]},
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.2,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            if "429" in str(e) and attempt < retries - 1:
+                await asyncio.sleep(1.2)
+                continue
+            raise e
 
 # ---------------- COMMANDS ----------------
 
@@ -165,35 +187,26 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }[lang]
     await update.message.reply_text(text, parse_mode="HTML")
 
-
 # ---------------- MAIN CHECKER ----------------
 
 async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("language", "en")
     text = update.message.text
 
-    # 1️⃣ If already processing → block
-    if context.user_data.get("is_processing", False):
-        await update.message.reply_text(LANGUAGES[lang]["wait"])
-        return
-
-    context.user_data["is_processing"] = True
-
-    # 2️⃣ Word limit
+    # Word limit
     word_count = len(text.split())
     if word_count > WORD_LIMIT:
-        context.user_data["is_processing"] = False
         await update.message.reply_text(
             LANGUAGES[lang]["word_limit"].format(count=word_count),
             parse_mode="HTML",
         )
         return
 
-    # 3️⃣ Send checking message
+    # Send checking message
     msg = await update.message.reply_text(LANGUAGES[lang]["checking"])
 
     try:
-        # 4️⃣ Timeout for OpenAI
+        # Timeout for OpenAI
         try:
             full_text = await asyncio.wait_for(
                 run_grammar_correction(text, lang),
@@ -203,7 +216,7 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(LANGUAGES[lang]["no_english"], parse_mode="HTML")
             return
 
-        # 5️⃣ Model responses
+        # Model responses
         if "NO_ERRORS_FOUND" in full_text:
             await msg.edit_text(LANGUAGES[lang]["no_error"], parse_mode="HTML")
         elif "NOT_IN_ENGLISH" in full_text:
@@ -214,9 +227,6 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Grammar error: {e}")
         await msg.edit_text("❌ Error: " + str(e))
-    finally:
-        context.user_data["is_processing"] = False
-
 
 # ---------------- RUN BOT ----------------
 
