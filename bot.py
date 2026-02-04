@@ -67,7 +67,7 @@ SYSTEM_PROMPTS = {
 
 TASK:
 • Fix important grammar mistakes
-• Ignore commas, capitalization, spacing
+• Ignore punctuational mistakes
 • Keep meaning the same
 • If text is nonsense or not English → reply: NOT_IN_ENGLISH
 
@@ -88,7 +88,7 @@ If no important mistakes → reply: NO_ERRORS_FOUND
 
 TASK:
 • Исправлять только серьёзные грамматические ошибки
-• Игнорировать мелкие детали
+• Не обращайте внимания на ошибки в пунктуации
 • Смысл не менять
 • Если текст не английский → ответ: NOT_IN_ENGLISH
 
@@ -109,7 +109,7 @@ TASK:
 
 TASK:
 • Faqat muhim grammatik xatolarni tuzating
-• Kichik xatolarni e'tiborga olmang
+• Tinish belgilaridagi xatolarga e’tiborga olmang
 • Ma'noni o'zgartirmang
 • Inglizcha bo'lmasa → NOT_IN_ENGLISH
 
