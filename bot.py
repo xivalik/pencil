@@ -30,12 +30,12 @@ WORD_LIMIT = 100
 # ---------------- MESSAGES ----------------
 
 MSG = {
-    "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors.",
+    "start": "🎓 <b>English Grammar Checker Bot</b>\n\n📝 Send me any English text and I will check it for grammar errors",
     "checking": "⏳ checking…",
-    "word_limit": f"⚠️ <b>Word limit exceeded!</b>\n\nMaximum {WORD_LIMIT} words.\nYour message: <b>{{count}}</b> words.\n\n📝 Please send a shorter text.",
+    "word_limit": f"⚠️ <b>Word limit exceeded!</b>\n\nMaximum {WORD_LIMIT} words.\nYour message has <b>{{count}}</b> words.\n\n📝 Please send a shorter text",
     "no_error": "✅ <b>No mistakes found</b>",
-    "no_english": "🚫 <b>Text does not appear to be English.</b>\n\n❕ Please send English text only!",
-    "timeout": "⏳ <b>Server is busy, please try again!</b>",
+    "no_english": "⁉️ <b>Text does not appear to be English.</b>\n\n Please send English text only",
+    "timeout": "⏳ <b>Server is busy, please try again</b>",
 }
 
 # ---------------- SYSTEM PROMPT ----------------
@@ -55,7 +55,7 @@ Use Telegram HTML formatting. EXACTLY this format and nothing else:
 [corrected text]
 
 
-❗<b>Mistakes:</b>
+👇<b>Mistakes:</b>
 
 ➤ "[wrong]" → "[correct]" — [reason]"""
 
