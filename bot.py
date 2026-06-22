@@ -1,6 +1,8 @@
 import logging
 import asyncio
 import anthropic
+from datetime import datetime, timezone
+from supabase import create_client
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -10,12 +12,16 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from config import TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY
+from config import TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_KEY
 
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set!")
 if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY environment variable is not set!")
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL environment variable is not set!")
+if not SUPABASE_KEY:
+    raise ValueError("SUPABASE_KEY environment variable is not set!")
 
 anthropic_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -26,6 +32,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 WORD_LIMIT = 100
+
+# ---------------- SUPABASE ----------------
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ---------------- MESSAGES ----------------
 
@@ -79,6 +88,24 @@ async def run_grammar_correction(text: str) -> str:
                 continue
             raise e
 
+# ---------------- DATABASE LOGGING ----------------
+
+def log_message(tg_id, username, name, message, output):
+    """Insert one row into Supabase. The client is synchronous, so callers
+    run this in a background thread. Never raises — a logging failure must
+    not break the user's reply."""
+    try:
+        supabase.table("Pencil table").insert({
+            "tg_id": tg_id,
+            "username": username,
+            "name": name,
+            "input": message,
+            "output": output,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.warning(f"Supabase log failed: {e}")
+
 # ---------------- BLOCK DETECTION ----------------
 
 async def handle_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,9 +124,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    user = update.effective_user
+
+    def _log(output):
+        # Background-log so the reply is never delayed.
+        asyncio.create_task(asyncio.to_thread(
+            log_message, user.id, user.username, user.full_name, text, output
+        ))
 
     word_count = len(text.split())
     if word_count > WORD_LIMIT:
+        _log("WORD_LIMIT_EXCEEDED")
         await update.message.reply_text(
             MSG["word_limit"].format(count=word_count),
             parse_mode="HTML",
@@ -115,8 +150,11 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 timeout=10,
             )
         except asyncio.TimeoutError:
+            _log("TIMEOUT")
             await msg.edit_text(MSG["timeout"], parse_mode="HTML")
             return
+
+        _log(full_text)
 
         if "NO_ERRORS_FOUND" in full_text:
             await msg.edit_text(MSG["no_error"], parse_mode="HTML")
@@ -127,6 +165,7 @@ async def check_grammar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Grammar error: {e}")
+        _log(f"ERROR: {e}")
         await msg.edit_text("❌ Error: " + str(e))
 
 # ---------------- RUN BOT ----------------
